@@ -8,10 +8,12 @@ Turning a camera frame into an action on a microcontroller means solving three t
 
 ## Approach
 
-Built in two stages:
+Built in three stages:
 
 1. **`prototype/`** — a minimal standalone sketch: camera init, QR decoding on its own FreeRTOS task (`onQrCodeTask`, pinned to core 1) so decoding never blocks the main loop, and an LED pulse on every valid decode. This proved out the core camera → decode → signal pipeline before adding anything else.
 2. **`camera-web-server/`** — the same QR detection integrated into a full live MJPEG streaming server (extending Espressif's official `CameraWebServer` example), so the camera feed can be watched live over Wi-Fi while QR commands are decoded in the background.
+
+3. **`blink-fft/`**: a second, frequency-domain command channel. An LED blinking at 2 / 4 / 6 Hz in front of the camera is decoded as LEFT / RIGHT / STOP. Each frame's centre-region brightness becomes a time series sampled at the camera frame rate. A DSP task on the other core runs a Hann-windowed 64-point radix-2 FFT, measures the real frame rate from timestamps, rejects weak or off-target peaks (peak-to-noise gate), and debounces before acting. A self-test mode drives its own LED through known frequencies and logs accuracy and false triggers. The DSP module is portable C99 with **7/7 host unit tests** (see [blink-fft/README.md](blink-fft/README.md)).
 
 QR decoding uses the [ESP32QRCodeReader](https://github.com/alvarowolfx/ESP32QRCodeReader) library (built on the `quirc` decoder), which handles frame capture and decode; the project's own logic is the task architecture, LED signaling, and the web-server integration.
 
@@ -25,7 +27,7 @@ QR decoding uses the [ESP32QRCodeReader](https://github.com/alvarowolfx/ESP32QRC
 
 ## Tech Stack
 
-C++ (Arduino/ESP32 framework), FreeRTOS, ESP32-S3 (Seeed XIAO ESP32-S3 Sense), OV2640 camera, `ESP32QRCodeReader` (quirc-based QR decoding), ESP32 Arduino camera web server stack.
+C++ (Arduino/ESP32 framework), C99 DSP (radix-2 FFT, Hann window), Unity host tests, FreeRTOS, ESP32-S3 (Seeed XIAO ESP32-S3 Sense), OV2640 camera, `ESP32QRCodeReader` (quirc-based QR decoding), ESP32 Arduino camera web server stack.
 
 ## How to Run
 
